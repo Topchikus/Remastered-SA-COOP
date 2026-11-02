@@ -180,7 +180,8 @@ void RenderConnectMenu() {
     if (online) {
         // ---- in a session: who we are, the code for the friend, the players
         bool host = net.IsHost();
-        g.Text(FONT_BIG, cx, cy, host ? TR("Сервер запущен", "Server running") : TR("Вы в игре", "Connected"), kSaBlue,
+        bool lobby = flow::InLobby();
+        g.Text(FONT_BIG, cx, cy, lobby ? TR("Лобби", "Lobby") : host ? TR("Сервер запущен", "Server running") : TR("Вы в игре", "Connected"), kSaBlue,
                TEXT_SHADOW);
         cy += bh + 2 * s;
         if (!host) para(Format(TR("Сервер «%s»", "Server \"%s\""), net.ServerName().c_str()), kSaMuted, FONT_NORMAL);
@@ -206,19 +207,47 @@ void RenderConnectMenu() {
         }
         caption(cx, Format(TR("Игроки: %d из %d", "Players: %d of %d"), 1 + (int)net.Peers().size(), net.MaxPlayers()));
         cy += ch + 8 * s;
-        auto row = [&](const std::string& name, bool isHost, uint32_t ping, bool me) {
+        auto row = [&](const std::string& name, bool isHost, uint32_t ping, bool me, uint8_t id) {
             float rh = lh + 14 * s;
             g.Rect(cx, cy, cw, rh, 0xFF090C10);
             g.Text(FONT_NORMAL, cx + 14 * s, cy + 7 * s, me ? name + TR(" (вы)", " (you)") : name, me ? 0xFFFFFFFF : kText,
                    TEXT_SHADOW);
-            g.Text(FONT_MENU_SMALL, cx + cw * 0.55f, cy + (rh - ch) * 0.5f, isHost ? TR("хост", "host") : TR("напарник", "partner"),
-                   isHost ? kSaBlue : kSaGreen);
+            if (isHost) {
+                g.Text(FONT_MENU_SMALL, cx + cw * 0.55f, cy + (rh - ch) * 0.5f, TR("хост", "host"), kSaBlue);
+            } else if (lobby && (me ? flow::LobbyMyReady() : flow::LobbyReady(id))) {
+                g.Text(FONT_MENU_SMALL, cx + cw * 0.55f, cy + (rh - ch) * 0.5f, TR("готов", "ready"), kSaGreen);
+            } else {
+                g.Text(FONT_MENU_SMALL, cx + cw * 0.55f, cy + (rh - ch) * 0.5f, TR("напарник", "partner"), kSaGreen);
+            }
             g.Text(FONT_SMALL, cx + cw - 14 * s, cy + (rh - sh) * 0.5f, Format(TR("%u мс", "%u ms"), ping), kSaMuted, TEXT_RIGHT);
             cy += rh + 4 * s;
         };
-        row(Cfg().nickname, host, net.Rtt(), true);
-        for (auto& [id, p] : net.Peers()) row(p.name, p.isHost, p.ping, false);
-        if (host && net.Peers().empty()) para(TR("Ждём друга...", "Waiting for your friend..."), kSaMuted);
+        row(Cfg().nickname, host, net.Rtt(), true, net.MyId());
+        for (auto& [id, p] : net.Peers()) row(p.name, p.isHost, p.ping, false, id);
+        if (host && net.Peers().empty()) para(TR("Ждём друзей...", "Waiting for your friends..."), kSaMuted);
+        if (lobby) {
+            cy += 10 * s;
+            int ready = 0;
+            for (auto& [id, p] : net.Peers())
+                if (!p.isHost && flow::LobbyReady(id)) ++ready;
+            if (host) {
+                if (w::Button("start", cx, cy, cw, bh + 10 * s, TR("Начать игру", "Start the game"), true, true, true))
+                    flow::LobbyStart();
+                cy += bh + 16 * s;
+                para(Format(TR("Готовы: %d из %d. Кто подключится позже, сразу войдёт в игру.",
+                               "Ready: %d of %d. Whoever joins later goes straight into the game."),
+                            ready, (int)net.Peers().size()),
+                     kSaMuted, FONT_SMALL, true);
+            } else {
+                bool me = flow::LobbyMyReady();
+                if (w::Button("ready", cx, cy, cw, bh + 10 * s, me ? TR("Не готов", "Not ready") : TR("Готов", "Ready"), true, !me, true))
+                    flow::LobbySetReady(!me);
+                cy += bh + 16 * s;
+                para(TR("Игра начнётся, когда хост нажмёт «Начать игру».",
+                        "The game starts when the host presses \"Start the game\"."),
+                     kSaMuted, FONT_SMALL, true);
+            }
+        }
         // the colour of our own mark on the other players' radar (also /blip in the chat), saved and sent at once
         if (Cfg().partnerBlip) {
             static const char* const kColours[] = {"", "white", "red", "green", "yellow"};

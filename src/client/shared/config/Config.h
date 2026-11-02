@@ -26,6 +26,9 @@ struct ClientConfig {
     int windowX = -1, windowY = -1;   // -1 = centre
     int width = 0, height = 0;        // 0 = use the game's video mode
     bool borderless = false;          // windowed without a frame, up to the whole screen (a fullscreen look)
+    float drawDistance = 4.0f;        // the far clip and fog of the time cycle times this (1 = the game's own, 4 the most)
+    float lodDistance = 3.0f;         // the menu's draw distance (models' detail range) times this (3 the most)
+    int streamingMemoryMb = 512;      // CStreaming::ms_memoryAvailable at least this (the game's 50 MB fill fast)
     std::string windowTitle;          // the window's caption (empty: the game's): tells two copies apart to a recorder
     bool multiInstance = false;       // allow several game copies (testing)
     bool runInBackground = true;      // keep simulating when the window is not focused

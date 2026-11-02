@@ -234,6 +234,7 @@ enum MsgId : uint8_t {
                               // 3 enter pressed, 4 deny: host -> partner), u16 object, release: vec3 pos, quat rot
 
     G_DUEL = 190,
+    G_LOBBY = 191,
     G_VOICE = 200,            // unreliable: voice frame
     G_LAST = 255,
 };

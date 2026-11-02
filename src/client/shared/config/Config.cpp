@@ -2,6 +2,7 @@
 
 #include <windows.h>
 #include <shellapi.h>
+#include <algorithm>
 
 #include "common/config/version/Version.h"
 #include "common/lib/ini/Ini.h"
@@ -54,6 +55,19 @@ bool ClientConfig::Load(const std::wstring& coopDirectory) {
     width = ini.GetInt("game", "width", 0);
     height = ini.GetInt("game", "height", 0);
     borderless = ini.GetBool("game", "borderless", borderless);
+    drawDistance = std::clamp(ini.GetFloat("game", "draw_distance", drawDistance), 0.5f, 4.0f);
+    lodDistance = std::clamp(ini.GetFloat("game", "lod_distance", lodDistance), 0.5f, 3.0f);
+    streamingMemoryMb = std::clamp(ini.GetInt("game", "streaming_memory", streamingMemoryMb), 0, 1024);
+    if (ini.GetInt("game", "draw_settings", 0) < 2) {
+        drawDistance = 4.0f;
+        lodDistance = 3.0f;
+        streamingMemoryMb = std::max(streamingMemoryMb, 512);
+        ini.Set("game", "draw_distance", "4.0");
+        ini.Set("game", "lod_distance", "3.0");
+        ini.SetInt("game", "streaming_memory", streamingMemoryMb);
+        ini.SetInt("game", "draw_settings", 2);
+        ini.Save(iniPath);
+    }
     windowTitle = ini.Get("game", "window_title", "");
     multiInstance = ini.GetBool("game", "multi_instance", multiInstance);
     runInBackground = ini.GetBool("game", "run_in_background", runInBackground);
