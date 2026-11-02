@@ -21,7 +21,7 @@ struct Config {
     bool friendlyFire = false;  // the players can hurt each other
     bool partnerTeleport = true;  // the partners may use /tp and /tphere
     uint16_t port = 7788;
-    int maxPlayers = 2;
+    int maxPlayers = 16;
     std::wstring dataDir;    // profiles/, world/
     std::wstring worldFile;  // optional initial world save (passed by the launcher)
     bool newGame = false;    // the host starts a new game: the stored world belongs to an older one

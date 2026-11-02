@@ -13,10 +13,13 @@
 
 namespace coop::proto {
 
-constexpr int kMaxPlayers = 4;  // hard protocol limit (the game client supports 2 at the moment)
-// what the game client supports: the other player's character takes the game's second player slot (CWorld::Players[1]),
-// and a third player's could not be made (fires, props and trains are keyed by the sender's own ids too)
-constexpr int kGamePlayers = 2;
+constexpr int kMaxPlayers = 16;
+constexpr int kDefaultMaxPlayers = 4;
+constexpr int kGamePlayers = 16;
+
+using PlayerMask = uint16_t;
+constexpr PlayerMask kAllPlayers = 0xFFFF;
+inline PlayerMask Bit(uint8_t id) { return id < kMaxPlayers ? (PlayerMask)(1u << id) : 0; }
 constexpr uint8_t kServerId = 255;
 constexpr size_t kMaxChatLen = 160;
 constexpr size_t kWorldChunk = 16 * 1024;
@@ -287,6 +290,7 @@ struct Welcome {
     bool worldAvailable = false;
     bool friendlyFire = false;  // the players can hurt each other (the host chose it creating the game)
     bool partnerTeleport = true;  // the partners may use /tp and /tphere (the host's choice too)
+    uint8_t maxPlayers = kDefaultMaxPlayers;
     std::vector<PlayerEntry> players;  // already connected players (excluding you)
 
     void Write(Writer& w) const {
@@ -304,6 +308,7 @@ struct Welcome {
         w.Str(motdEn, 512);
         w.Bool(friendlyFire);
         w.Bool(partnerTeleport);
+        w.U8(maxPlayers);
     }
     bool Read(Reader& r) {
         yourId = r.U8();
@@ -323,6 +328,7 @@ struct Welcome {
         motdEn = r.Str(512);
         friendlyFire = r.Bool();
         partnerTeleport = r.Bool();
+        maxPlayers = r.Remaining() ? r.U8() : kDefaultMaxPlayers;
         return r.Ok();
     }
 };

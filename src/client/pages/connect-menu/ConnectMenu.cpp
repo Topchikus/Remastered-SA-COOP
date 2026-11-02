@@ -204,7 +204,7 @@ void RenderConnectMenu() {
             }
             cy += 20 * s;
         }
-        caption(cx, Format(TR("Игроки: %d", "Players: %d"), 1 + (int)net.Peers().size()));
+        caption(cx, Format(TR("Игроки: %d из %d", "Players: %d of %d"), 1 + (int)net.Peers().size(), net.MaxPlayers()));
         cy += ch + 8 * s;
         auto row = [&](const std::string& name, bool isHost, uint32_t ping, bool me) {
             float rh = lh + 14 * s;
@@ -312,6 +312,12 @@ void RenderConnectMenu() {
         cy += rowH + 22 * s;
         if (g_tab == 1) {  // the host decides for the whole game; saved with the other settings when the server starts
             w::Checkbox("ff", cx, cy, TR("Урон по напарнику", "Friendly fire"), Cfg().friendlyFire);
+            // the places on the server, the host's own among them
+            int& places = Cfg().maxPlayers;
+            float sw = 250 * s;
+            int d = w::Selector("places", cx + cw - sw, cy - (rowH - lh * 0.8f) * 0.5f, sw, rowH,
+                                Format(TR("Игроков: до %d", "Players: up to %d"), places));
+            if (d) places = (places - 2 + d + 15) % 15 + 2;  // 2..16 round
             cy += lh * 0.8f + 22 * s;
             bool noTeleport = !Cfg().partnerTeleport;
             if (w::Checkbox("tp", cx, cy, TR("Запретить напарникам /tp и /tphere", "No /tp and /tphere for partners"), noTeleport))
