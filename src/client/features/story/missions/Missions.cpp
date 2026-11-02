@@ -2471,6 +2471,54 @@ void StandNextToCutsceneCj() {
     }
 }
 
+// Finds a safe spot beside origin (not inside the host, not inside a wall/vehicle)
+CVector FindSafeSpawnBeside(const CVector& origin, float heading, int area) {
+    float cosH = std::cos(heading);
+    float sinH = std::sin(heading);
+
+    struct Offset { float right; float fwd; };
+    static const Offset kOffsets[] = {
+        { 2.2f,  0.0f},   // right side
+        {-2.2f,  0.0f},   // left side
+        { 1.8f, -1.8f},   // behind right
+        {-1.8f, -1.8f},   // behind left
+        { 0.0f, -2.2f},   // directly behind
+        { 1.8f,  1.8f},   // front right
+        {-1.8f,  1.8f},   // front left
+        { 3.0f,  0.0f},   // wide right
+        {-3.0f,  0.0f},   // wide left
+    };
+
+    for (const auto& off : kOffsets) {
+        CVector cand = origin + CVector{cosH * off.right - sinH * off.fwd,
+                                        sinH * off.right + cosH * off.fwd,
+                                        0.0f};
+
+        CVector rayStart = origin + CVector{0.0f, 0.0f, 0.5f};
+        CVector rayEnd = cand + CVector{0.0f, 0.0f, 0.5f};
+        if (!Call<0x56A490, bool>(&rayStart, &rayEnd, true, true, false, true, false, true, false)) {
+            continue;  // Wall or obstacle in the way
+        }
+
+        bool groundOk = false;
+        float gz = Call<0x5696C0, float>(cand.x, cand.y, origin.z + 2.0f, &groundOk, (CEntity**)nullptr);
+        if (groundOk && std::fabs(gz - (origin.z - 1.0f)) < 3.0f) {
+            cand.z = gz;
+            return cand;
+        }
+    }
+
+    CVector fallback = origin + CVector{cosH * 2.0f, sinH * 2.0f, 0.0f};
+    bool groundOk = false;
+    float gz = Call<0x5696C0, float>(fallback.x, fallback.y, origin.z + 2.0f, &groundOk, (CEntity**)nullptr);
+    if (groundOk) {
+        fallback.z = gz;
+    } else {
+        fallback.z = origin.z - 1.0f;
+    }
+    return fallback;
+}
+
 void LeaveCutsceneScene() {
     if (const RemotePlayer* host = Players::Instance().Get(Net().HostId()); host && host->ped) {
         host->ped->Flags() |= 0x80;
@@ -2481,11 +2529,31 @@ void LeaveCutsceneScene() {
     g_inScene = false;
     CPlayerPed* me = FindPlayerPed(0);
     int h = GetPedRef(me);
-    Cmd(0x04BB).I(g_sceneArea).Run();      // SET_AREA_VISIBLE
-    Cmd(0x0860).I(h).I(g_sceneArea).Run();  // SET_CHAR_AREA_VISIBLE
-    Cmd(0x04D7).I(h).I(0).Run();  // FREEZE_CHAR_POSITION off (a scene that ended before its first spot held nobody)
-    Cmd(0x00A1).I(h).F(g_scenePos.x).F(g_scenePos.y).F(g_scenePos.z - 1.0f).Run();
-    me->CurrentRotation() = me->AimingRotation() = g_sceneHeading;
+
+    CVector target = g_scenePos;
+    float heading = g_sceneHeading;
+    int targetArea = g_sceneArea;
+
+    const RemotePlayer* host = Players::Instance().Get(Net().HostId());
+    if (host && host->hasState && host->state.area >= 0) {
+        target = host->state.pos;
+        heading = host->state.rotation;
+        targetArea = host->state.area;
+    } else if (host && host->ped) {
+        target = host->ped->GetPosition();
+        heading = host->ped->CurrentRotation();
+        targetArea = host->ped->AreaCode();
+    }
+
+    CVector safeSpot = FindSafeSpawnBeside(target, heading, targetArea);
+
+    Cmd(0x04BB).I(targetArea).Run();      // SET_AREA_VISIBLE
+    Cmd(0x0860).I(h).I(targetArea).Run();  // SET_CHAR_AREA_VISIBLE
+    Cmd(0x04D7).I(h).I(0).Run();  // FREEZE_CHAR_POSITION off
+    Cmd(0x03CB).F(safeSpot.x).F(safeSpot.y).F(safeSpot.z).Run();  // LOAD_SCENE
+    Cmd(0x00A1).I(h).F(safeSpot.x).F(safeSpot.y).F(safeSpot.z).Run();  // SET_CHAR_COORDINATES
+    Cmd(0x0173).I(h).F(heading * 57.29578f).Run();  // SET_CHAR_HEADING
+    me->CurrentRotation() = me->AimingRotation() = heading;
 }
 
 // back into the vehicle the cutscene's loading took us out of, as a mission script does with CJ
@@ -2780,7 +2848,7 @@ void HandleCutscene(uint8_t from, Reader& r) {
             LOGI("The host's mission moved it to area %d: we stay (%s)", area, busy);
             return;
         }
-        CVector p = CVector{to.x, to.y, to.z} + CVector{std::cos(heading), std::sin(heading), 0.0f} * 1.5f;  // its right hand
+        CVector p = FindSafeSpawnBeside(CVector{to.x, to.y, to.z}, heading, area);
         if (g_inScene) {  // the scene's end puts us there, not back at the old place
             g_scenePos = p, g_sceneArea = (int8_t)area, g_sceneHeading = heading, g_csCar = -1;
         } else {
@@ -2791,7 +2859,8 @@ void HandleCutscene(uint8_t from, Reader& r) {
             if (v && (area != 0 || v->Driver() != me)) Cmd(0x0362).I(h).F(p.x).F(p.y).F(p.z).Run();  // WARP_CHAR_FROM_CAR_TO_COORD
             Cmd(0x04BB).I(area).Run();                           // SET_AREA_VISIBLE
             Cmd(0x0860).I(h).I(area).Run();                      // SET_CHAR_AREA_VISIBLE
-            Cmd(0x00A1).I(h).F(p.x).F(p.y).F(p.z - 1.0f).Run();  // SET_CHAR_COORDINATES (a car we drive outdoors comes along)
+            Cmd(0x03CB).F(p.x).F(p.y).F(p.z).Run();              // LOAD_SCENE
+            Cmd(0x00A1).I(h).F(p.x).F(p.y).F(p.z).Run();        // SET_CHAR_COORDINATES
             Cmd(0x0173).I(h).F(heading * 57.29578f).Run();       // SET_CHAR_HEADING
             LightArea(area, p);
             UseStreetDoor(area, p, CVector{from.x, from.y, from.z});
