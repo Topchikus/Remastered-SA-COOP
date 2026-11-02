@@ -14,6 +14,7 @@
 #include "entities/ped/Peds.h"
 #include "entities/session/Flow.h"
 #include "entities/vehicle/Vehicles.h"
+#include "features/duel/Duel.h"
 #include "shared/api/net-session/Session.h"
 #include "shared/config/Config.h"
 #include "shared/game/Anim.h"
@@ -2090,6 +2091,7 @@ void Players::DrawWeaponIcons() {
     auto& g = ui::Gfx();
     float kx = ScreenWidth() / std::max(1.0f, g.Width()), ky = ScreenHeight() / std::max(1.0f, g.Height());
     for (auto& [id, rp] : m_remote) {
+        if (duel::IsActive() && duel::IsDuelingWith(id)) continue;
         float sx, sy, alpha;
         if (!rp.hasState || !TagAnchor(rp, sx, sy, alpha)) continue;
         // right of the health bar (64 x 6 at sy - 6, see DrawNameTag), as tall as the bars
@@ -2101,6 +2103,7 @@ void Players::DrawWeaponIcons() {
 }
 
 void Players::DrawNameTag(RemotePlayer& rp) {
+    if (duel::IsActive() && duel::IsDuelingWith(rp.id)) return;
     float sx, sy, alpha;
     if (!TagAnchor(rp, sx, sy, alpha)) return;
     auto& g = ui::Gfx();

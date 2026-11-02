@@ -19,6 +19,8 @@
 #include "features/teleport/Teleport.h"
 #include "pages/connect-menu/ConnectMenu.h"
 #include "pages/players-menu/PlayersMenu.h"
+#include "features/anims/AnimMenu.h"
+#include "features/duel/Duel.h"
 #include "shared/api/net-session/Session.h"
 #include "shared/config/Config.h"
 #include "shared/game/Game.h"
@@ -133,6 +135,8 @@ void RenderOverlay() {
     ui::RenderOverlay();  // after the chat: the contest's board on top hides the ends of its longest lines
     ui::RenderPlayersMenu();
     ui::RenderConnectMenu();
+    ui::RenderDuelMenu();
+    ui::RenderAnimMenu();
     g.End();
     ui::In().EndFrame();
     if (!g_screenshotOverlayPath.empty() && NowMs() >= g_screenshotAt) {  // with our overlay
@@ -215,7 +219,7 @@ void HandleChatSubmit(const std::string& text) {
             flow::Leave();
             return;
         }
-        if (cmd == "coop" || cmd == "menu") {
+        if (cmd == "coop" || cmd == "menu" || cmd == "меню") {
             ShowConnectMenu(true);
             return;
         }
@@ -281,6 +285,8 @@ void CommonFrame() {
 
     ui::TheChat().ProcessInput();
     ui::ProcessConnectMenu();
+    ui::ProcessDuelMenu();
+    ui::ProcessAnimMenu();
 }
 
 std::wstring CoopDirFromModule(void* hModule) {
@@ -426,6 +432,20 @@ bool OnKeyDown(int vk, bool repeat) {
             return true;
         }
         return true;  // the menu owns the keyboard while open
+    }
+    if (ui::IsDuelMenuVisible()) {
+        if (vk == VK_ESCAPE) {
+            if (!repeat) ui::SetDuelMenuVisible(false);
+            return true;
+        }
+        return true;
+    }
+    if (ui::IsAnimMenuVisible()) {
+        if (vk == VK_ESCAPE) {
+            if (!repeat) ui::SetAnimMenuVisible(false);
+            return true;
+        }
+        return true;
     }
     if (ui::IsPlayersMenuVisible()) {
         if ((vk == VK_ESCAPE || vk == cfg.playerListKey) && !repeat) ui::SetPlayersMenuVisible(false);

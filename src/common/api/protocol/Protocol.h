@@ -230,6 +230,7 @@ enum MsgId : uint8_t {
     G_OBJ_HOLD = 163,         // reliable: the partner holds the copy of a host's mission object: u8 op (1 hold, 2 release,
                               // 3 enter pressed, 4 deny: host -> partner), u16 object, release: vec3 pos, quat rot
 
+    G_DUEL = 190,
     G_VOICE = 200,            // unreliable: voice frame
     G_LAST = 255,
 };

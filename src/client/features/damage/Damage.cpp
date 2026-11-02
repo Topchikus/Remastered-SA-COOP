@@ -31,6 +31,7 @@
 #include "entities/ped/Peds.h"
 #include "entities/player/Players.h"
 #include "entities/vehicle/Vehicles.h"
+#include "features/duel/Duel.h"
 #include "shared/api/net-session/Session.h"
 #include "shared/game/Game.h"
 #include "shared/game/Script.h"
@@ -123,6 +124,16 @@ bool IsLocalPlayerEntity(CEntity* e) {
     return e && me && (e == me || DriverOf(e) == me);
 }
 
+bool PlayerHurts(CEntity* e) {
+    if (Net().FriendlyFire()) return true;
+    if (RemotePlayer* rp = Players::Instance().FindByPed(e ? (e->IsPed() ? (CPed*)e : DriverOf(e)) : nullptr))
+        return duel::IsDuelingWith(rp->id);
+    return false;
+}
+bool PlayerHurts(uint8_t id) {
+    return Net().FriendlyFire() || duel::IsDuelingWith(id);
+}
+
 bool IsRemotePlayerEntity(CEntity* e) {
     if (!e) return false;
     CPed* ped = e->IsPed() ? (CPed*)e : DriverOf(e);
@@ -211,7 +222,7 @@ bool __cdecl HookGenerateDamageEvent(CPed* victim, CEntity* creator, int weapon,
         if (cam::WideScreenOn() && FromOtherSide(creator)) return true;  // see the top of the file
         bool fromRemote = IsRemotePlayerEntity(creator);
         if (fromRemote && victim == FindPlayerPed(0))  // see the top of the file
-            return Net().FriendlyFire() && !IsDirect(weapon) ? g_origGenerateDamage(victim, creator, weapon, damage, piece, dir) : true;
+            return PlayerHurts(creator) && !IsDirect(weapon) ? g_origGenerateDamage(victim, creator, weapon, damage, piece, dir) : true;
         // A mirrored ped's blow is its owner's to tell (TARGET_PLAYER from there). A mirror fighting here too (29.10: 29FE,
         // 1C47, 1F13) hit our player a second time out of step, and its blows on the copy went there as this game's
         if (weapon <= WEAPON_LAST_MELEE && !fromRemote && creator && creator->IsPed() &&
@@ -232,7 +243,7 @@ bool __cdecl HookGenerateDamageEvent(CPed* victim, CEntity* creator, int weapon,
                 LOGD("NPC %04X hit player %d: weapon %d, damage %d", attacker ? attacker->netId : 0, rp->id, weapon, damage);
                 return true;
             }
-            if (Net().FriendlyFire() && IsDirect(weapon) && IsLocalPlayerEntity(creator)) {
+            if (PlayerHurts(rp->id) && IsDirect(weapon) && IsLocalPlayerEntity(creator)) {
                 SendDamage(TARGET_PLAYER_BY_PLAYER, rp->id, 0, weapon, (float)damage, piece, dir, victim->GetPosition(), 0, creator);
                 LOGI("Hit player %d: weapon %d, damage %d", rp->id, weapon, damage);
                 return true;
@@ -423,7 +434,7 @@ void HandleDamage(uint8_t from, Reader& r) {
             LOGD("Ped %04X of player %d hit our ped %04X: weapon %d, damage %.0f", by, from, netId, weapon, damage);
         }
     } else if (kind == TARGET_PLAYER_BY_PLAYER) {
-        if (!Net().FriendlyFire()) return;
+        if (!PlayerHurts(from)) return;
         {
             KeepWanted keep;
             FightAs fight(attacker, fightSet, fightMove);
