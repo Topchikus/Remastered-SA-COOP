@@ -38,11 +38,23 @@ void __fastcall HookCentreMousePointer(void* self, void* edx) {
 
 using MouseSetPosFn = void(__cdecl*)(void*);
 MouseSetPosFn g_origIdleMouseSetPos = nullptr;
+MouseSetPosFn g_origWinMainMouseSetPos = nullptr;
+MouseSetPosFn g_origPsMouseSetPos = nullptr;
 void __cdecl HookIdleMouseSetPos(void* pos) {
     // Idle() puts the OS cursor in the middle of the window every frame in game: not while our menu uses the
     // mouse, and not in the background (it would drag the cursor away from other applications).
     if (!game::IsForeground() || ui::In().MouseCaptured()) return;
-    g_origIdleMouseSetPos(pos);
+    if (g_origIdleMouseSetPos) g_origIdleMouseSetPos(pos);
+}
+
+void __cdecl HookWinMainMouseSetPos(void* pos) {
+    if (!game::IsForeground() || ui::In().MouseCaptured()) return;
+    if (g_origWinMainMouseSetPos) g_origWinMainMouseSetPos(pos);
+}
+
+void __cdecl HookPsMouseSetPos(void* pos) {
+    if (!game::IsForeground() || ui::In().MouseCaptured()) return;
+    if (g_origPsMouseSetPos) g_origPsMouseSetPos(pos);
 }
 
 using PadFn = void(__fastcall*)(void*, void*);
@@ -837,7 +849,9 @@ void Apply() {
         mem::RedirectCallFn(0x748D9B, &HookIdleEvent, &g_origIdleEvent);    // WinMain -> RsEventHandler(rsIDLE)
     }
     mem::HookFn(0x57C520, &HookCentreMousePointer, &g_origCentreMouse, "CMenuManager::CentreMousePointer");
+    mem::HookFn(0x7453F0, &HookPsMouseSetPos, &g_origPsMouseSetPos, "psMouseSetPos");
     mem::RedirectCallFn(0x53E9F1, &HookIdleMouseSetPos, &g_origIdleMouseSetPos);  // Idle -> RsMouseSetPos
+    mem::RedirectCallFn(0x748A1B, &HookWinMainMouseSetPos, &g_origWinMainMouseSetPos);  // WinMain -> RsMouseSetPos
     mem::HookFn(0x53F3C0, &HookUpdateMouse, &g_origUpdateMouse, "CPad::UpdateMouse");
     mem::HookFn(0x561AF0, &HookStartUserPause, &g_origStartUserPause, "CTimer::StartUserPause");
     mem::HookFn(0x4600F0, &HookTriggerReplay, &g_origTriggerReplay, "CReplay::TriggerPlayback");

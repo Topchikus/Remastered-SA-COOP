@@ -80,6 +80,7 @@ void Input::SetMouseCapture(bool on) {
     if (on == m_mouseCapture) return;
     m_mouseCapture = on;
     if (on) {
+        ClipCursor(nullptr);
         // put the cursor in the middle so the user sees it
         RECT rc;
         if (m_hwnd && GetClientRect((HWND)m_hwnd, &rc)) {

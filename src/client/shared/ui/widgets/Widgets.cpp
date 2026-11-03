@@ -86,14 +86,16 @@ static bool MenuItem(float x, float y, float w, float h, FontId font, const std:
     bool lit = enabled && (selected || hover);
     float tw = g.TextWidth(font, label), lh = g.LineHeight(font);
     float tx = x + (w - tw) * 0.5f, ty = y + (h - lh) * 0.5f;
+    if (tx < x + 6.0f * g.Scale()) tx = x + 6.0f * g.Scale();
     if (enabled && (selected || (hover && pointerOnHover))) Pointer(tx - lh * 0.95f, y + h * 0.5f, lh * 1.7f, kSaBlue);
     g.Text(font, tx, ty, label, !enabled ? 0xFF353F4A : lit ? kSaBlue : kSaSlate, TEXT_SHADOW);
     return hover && In().State().lmbPressed;
 }
 
 bool Button(const char* id, float x, float y, float w, float h, const std::string& label, bool enabled, bool lit,
-            bool big) {
-    return MenuItem(x, y, w, h, big ? FONT_BIG : FONT_MENU, label, enabled, lit, true);
+            bool big, bool small) {
+    FontId font = big ? FONT_BIG : small ? FONT_MENU_SMALL : FONT_MENU;
+    return MenuItem(x, y, w, h, font, label, enabled, lit, true);
 }
 
 bool Tab(const char* id, float x, float y, float w, float h, const std::string& label, bool active, bool small) {

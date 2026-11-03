@@ -53,6 +53,8 @@ struct NetVehicle {
     VehicleLook look;            // owned: last sent; mirror: wanted
     bool hasLook = false;
     uint64_t lookCheckMs = 0, lookSentMs = 0;
+    uint8_t radioStation = 0;
+    uint8_t lastSentRadio = 0;
 };
 
 class Vehicles : public Module {
@@ -104,6 +106,7 @@ private:
     void HandleSync(uint8_t from, Reader& r);
     void HandleOwner(uint8_t from, Reader& r);
     void HandleStatus(uint8_t from, Reader& r);
+    void HandleRadio(uint8_t from, Reader& r);
     void SendLook(NetVehicle& nv);
     void ApplyLook(NetVehicle& nv);
     void ApplyMirror(NetVehicle& nv, float dt);

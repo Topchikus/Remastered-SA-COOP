@@ -159,6 +159,7 @@ void Vehicles::OnInstallHooks() {
     Net().SetHandler(proto::G_VEH_HANDOVER, [](uint8_t from, Reader& r) { Instance().HandleHandover(from, r); });
     Net().SetHandler(proto::G_VEH_SCRIPT_FREE, [](uint8_t from, Reader& r) { Instance().HandleScriptFree(from, r); });
     Net().SetHandler(proto::G_VEH_CLEAR, [](uint8_t from, Reader& r) { Instance().HandleClear(from, r); });
+    Net().SetHandler(proto::G_VEH_RADIO, [](uint8_t from, Reader& r) { Instance().HandleRadio(from, r); });
 }
 
 NetVehicle* Vehicles::Find(uint16_t netId) {
@@ -278,6 +279,26 @@ void Vehicles::ApplyLook(NetVehicle& nv) {
     // the lock it had when it became known stayed: a mission car locked then held the partner who got in, after the
     // mission it was opened only in the owner's game (the Savanna of "Cesar Vialpando"); same rule as at the spawn
     v->DoorLock() = nv.look.lock == 2 && !nv.script ? 1 : nv.look.lock;
+}
+
+void Vehicles::HandleRadio(uint8_t from, Reader& r) {
+    uint16_t id = r.U16();
+    uint8_t station = r.U8();
+    if (!r.Ok()) return;
+    NetVehicle* nv = Find(id);
+    if (!nv) return;
+    nv->radioStation = station;
+    CPlayerPed* me = FindPlayerPed(0);
+    if (me && me->InVehicle() && me->Vehicle() == nv->veh && nv->veh->Driver() != me) {
+        LOGI("Vehicle %04X: passenger synced radio to station %d", id, (int)station);
+        if (station == 0 || station > 12) {
+            CallMethod<0x4EB460>((void*)0x8CB6F8, (void*)nullptr, false);  // StopRadio
+            Ref<uint8_t>(0x8CB6F8) = station;
+        } else {
+            CallMethod<0x4E9820>((void*)0x8CB6F8, station, station);  // RetuneRadio (HUD name)
+            CallMethod<0x4EB3C0>((void*)0x8CB6F8, station, (uint8_t)0, (int32_t)0, (uint8_t)0);  // StartRadio (audio stream)
+        }
+    }
 }
 
 void Vehicles::TakeOwnership(NetVehicle& nv) {
@@ -819,13 +840,21 @@ void Vehicles::ApplyMirror(NetVehicle& nv, float dt) {
         nv.bumpMs = NowMs();
     uint64_t sinceBump = NowMs() - nv.bumpMs;
 
-    float age = std::min(0.3f, (float)(NowMs() - nv.recvMs) / 1000.0f);
+    float age = std::min(0.2f, (float)(NowMs() - nv.recvMs) / 1000.0f);
     CVector target = st.pos + st.vel * age;
     // the turn as far on as the position: pulled back each frame to where the state left it, a car spun on the spot
     // (W+S, a donut) turned slower here and jerked back with every state (issue #22)
     Quat targetRot = Quat::Turned(st.rot, st.turn, age);
     CVector cur = v->GetPosition();
     CVector err = target - cur;
+    bool isPassenger = me && me->InVehicle() && me->Vehicle() == v && v->Driver() != me;
+    if (isPassenger) {
+        err.z = std::clamp(err.z, -0.2f, 0.2f);
+        if (nv.radioStation != 0 && Ref<uint8_t>(0x8CB6F8) != nv.radioStation) {
+            CallMethod<0x4E9820>((void*)0x8CB6F8, nv.radioStation, nv.radioStation);
+            CallMethod<0x4EB3C0>((void*)0x8CB6F8, nv.radioStation, (uint8_t)0, (int32_t)0, (uint8_t)0);
+        }
+    }
     float dist = err.Length();
     bool resting = st.vel.Length() < 0.05f && dist < 0.15f;
     // no ground under it in this game (its collision is not loaded here): physics would drop it through the map,
@@ -840,20 +869,30 @@ void Vehicles::ApplyMirror(NetVehicle& nv, float dt) {
         SetVehicleMatrix(v, target, targetRot);
         v->MoveSpeed() = CVector{};
         v->TurnSpeed() = CVector{};
-    } else if (dist > 10.0f) {
+    } else if (dist > 8.0f) {
         SetVehicleMatrix(v, target, targetRot);
         v->MoveSpeed() = st.vel * (1.0f / 50.0f);
         v->TurnSpeed() = st.turn * (1.0f / 50.0f);
     } else if (sinceBump < 600) {
         // the hit's own motion, this game's physics
-    } else if (!resting) {
+    } else if (resting) {
+        v->MoveSpeed() = CVector{};
+        v->TurnSpeed() = CVector{};
+        if (dist > 0.01f) {
+            if (CMatrix* m = v->Matrix()) {
+                m->pos = m->pos + err * std::min(1.0f, dt * 8.0f);
+                CallMethod<0x446F90>(v);
+            }
+        }
+    } else {
         bool easing = sinceBump < 2000;  // back from a hit: slowly
-        CVector cmd = st.vel + err * (easing ? 1.5f : 4.0f);  // converge in ~1/4 s
-        v->MoveSpeed() = cmd * (1.0f / 50.0f);
+        v->MoveSpeed() = st.vel * (1.0f / 50.0f);
         v->TurnSpeed() = st.turn * (1.0f / 50.0f);
         if (CMatrix* m = v->Matrix()) {
             Quat q = Quat::Slerp(Quat::FromMatrix(*m), targetRot, std::min(1.0f, dt * (easing ? 3.0f : 12.0f)));
             q.ToMatrix(*m);
+            float posAlpha = std::min(1.0f, dt * (isPassenger ? 14.0f : 8.0f));
+            m->pos = m->pos + err * posAlpha;
             CallMethod<0x446F90>(v);
         }
     }
@@ -1034,6 +1073,16 @@ void Vehicles::OnPostProcess() {
         }
         // owned: the local driver's state goes in G_PLAYER_DRIVER (Players); here only unoccupied vehicles
         if (me && nv.veh->Driver() == me) {
+            uint8_t curRadio = Ref<uint8_t>(0x8CB6F8);
+            if (curRadio != nv.lastSentRadio) {
+                nv.lastSentRadio = curRadio;
+                nv.radioStation = curRadio;
+                Writer w(proto::G_VEH_RADIO);
+                w.U16(nv.netId);
+                w.U8(curRadio);
+                Net().Send(proto::CH_RELIABLE, w);
+                LOGI("Vehicle %04X: local driver radio station %d synced to passengers", nv.netId, (int)curRadio);
+            }
             nv.lastChangeMs = now;
             continue;
         }

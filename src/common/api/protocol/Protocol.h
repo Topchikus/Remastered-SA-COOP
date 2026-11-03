@@ -235,6 +235,7 @@ enum MsgId : uint8_t {
 
     G_DUEL = 190,
     G_LOBBY = 191,
+    G_VEH_RADIO = 192,        // reliable: u16 netId, u8 station (syncs vehicle radio to passengers)
     G_VOICE = 200,            // unreliable: voice frame
     G_LAST = 255,
 };

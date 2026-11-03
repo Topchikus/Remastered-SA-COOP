@@ -227,8 +227,16 @@ bool PassengerAiming() {
 // (CAERadioTrackManager, its two calls) does not hear them meanwhile.
 using StationFn = bool(__fastcall*)(CPad*, void*);
 StationFn g_origNextStation = nullptr, g_origLastStation = nullptr;
-bool __fastcall HookNextStation(CPad* pad, void* edx) { return !PassengerAiming() && g_origNextStation(pad, edx); }
-bool __fastcall HookLastStation(CPad* pad, void* edx) { return !PassengerAiming() && g_origLastStation(pad, edx); }
+bool __fastcall HookNextStation(CPad* pad, void* edx) {
+    CPed* me = FindPlayerPed(0);
+    if (PassengerAiming() || (me && me->InVehicle() && me->Vehicle() && me->Vehicle()->Driver() != me)) return false;
+    return g_origNextStation(pad, edx);
+}
+bool __fastcall HookLastStation(CPad* pad, void* edx) {
+    CPed* me = FindPlayerPed(0);
+    if (PassengerAiming() || (me && me->InVehicle() && me->Vehicle() && me->Vehicle()->Driver() != me)) return false;
+    return g_origLastStation(pad, edx);
+}
 
 bool __cdecl PassengerDriveBy() {
     const CPad* pad = GetPad(0);
@@ -448,9 +456,12 @@ void __fastcall HookVehicleAudioService(void* audio, void* edx) {
     auto* veh = Field<CVehicle*>(audio, 0x4);  // CAEAudioEntity::m_pEntity
     CPed* driver = veh ? veh->Driver() : nullptr;
     bool remote = driver && driver->PedType() == PED_TYPE_PLAYER1 && driver != FindPlayerPed(0);
-    if (remote) driver->PedType() = PED_TYPE_PLAYER_NETWORK;
+    CPed* me = FindPlayerPed(0);
+    bool meInThisCar = me && me->InVehicle() && me->Vehicle() == veh;
+    // Keep PLAYER1 ped type if local player is riding as passenger so full radio soundtrack plays instead of NPC ads
+    if (remote && !meInThisCar) driver->PedType() = PED_TYPE_PLAYER_NETWORK;
     g_origVehicleAudio(audio, edx);
-    if (remote) driver->PedType() = PED_TYPE_PLAYER1;
+    if (remote && !meInThisCar) driver->PedType() = PED_TYPE_PLAYER1;
 }
 
 // The other players' weapon icon goes next to the health bar over their heads. The HUD's sprite code draws it right

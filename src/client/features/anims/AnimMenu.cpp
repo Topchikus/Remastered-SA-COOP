@@ -182,7 +182,7 @@ void RenderAnimMenu() {
 
     float lh = g.LineHeight(FONT_NORMAL), sh = g.LineHeight(FONT_SMALL),
           ch = g.LineHeight(FONT_MENU_SMALL);
-    float W = 760 * s, H = 570 * s;
+    float W = 880 * s, H = 640 * s;
     float x = (g.Width() - W) * 0.5f, y = (g.Height() - H) * 0.5f;
     float cx = x + 36 * s, cw = W - 72 * s;
 
@@ -229,8 +229,8 @@ void RenderAnimMenu() {
 
     // Grid of buttons: 2 columns of 5 items
     float gridTop = cy + 4 * s;
-    float colW = (cw - 16 * s) * 0.5f;
-    float btnH = lh + 10 * s;
+    float colW = (cw - 24 * s) * 0.5f;
+    float btnH = ch + 12 * s;
 
     int startIdx = g_page * kPageSize;
     int endIdx = std::min((int)filtered.size(), startIdx + kPageSize);
@@ -239,7 +239,7 @@ void RenderAnimMenu() {
         int slot = i - startIdx;
         int col = slot % 2;
         int row = slot / 2;
-        float bx = cx + (float)col * (colW + 16 * s);
+        float bx = cx + (float)col * (colW + 24 * s);
         float by = gridTop + (float)row * (btnH + 6 * s);
         int animIdx = filtered[i];
         bool lit = (g_playing && g_playingIdx == animIdx);
@@ -249,7 +249,7 @@ void RenderAnimMenu() {
         std::string label = TR(kAnims[animIdx].nameRu, kAnims[animIdx].nameEn);
         if (lit) label = "▶ " + label;
 
-        if (w::Button(btnId, bx, by, colW, btnH, label, true, lit)) {
+        if (w::Button(btnId, bx, by, colW, btnH, label, true, lit, false, true)) {
             PlayAnim(animIdx);
         }
     }
@@ -257,8 +257,8 @@ void RenderAnimMenu() {
     float navY = gridTop + 5.0f * (btnH + 6 * s) + 8 * s;
 
     // Pagination
-    float navBtnW = 140 * s;
-    if (w::Button("page_prev", cx, navY, navBtnW, btnH, TR("< Предыдущая", "< Previous"), g_page > 0)) {
+    float navBtnW = 160 * s;
+    if (w::Button("page_prev", cx, navY, navBtnW, btnH, TR("< Предыдущая", "< Previous"), g_page > 0, false, false, true)) {
         --g_page;
     }
 
@@ -267,7 +267,7 @@ void RenderAnimMenu() {
     g.Text(FONT_NORMAL, cx + cw * 0.5f, navY + (btnH - lh) * 0.5f, pageStr, kSaBlue, TEXT_CENTER | TEXT_SHADOW);
 
     if (w::Button("page_next", cx + cw - navBtnW, navY, navBtnW, btnH, TR("Следующая >", "Next >"),
-                  g_page + 1 < totalPages)) {
+                  g_page + 1 < totalPages, false, false, true)) {
         ++g_page;
     }
 
@@ -277,15 +277,15 @@ void RenderAnimMenu() {
 
     // Footer
     float footerY = divY + 12 * s;
-    float stopW = 260 * s;
+    float stopW = 280 * s;
     std::string stopText = TR("■ Остановить анимацию", "■ Stop animation");
-    if (w::Button("stop_anim", cx, footerY, stopW, btnH, stopText, true, g_playing)) {
+    if (w::Button("stop_anim", cx, footerY, stopW, btnH, stopText, true, g_playing, false, true)) {
         StopAnim();
     }
 
     std::string closeText = TR("Закрыть", "Close");
-    float closeW = g.TextWidth(FONT_MENU, closeText) + 30 * s;
-    if (w::Button("close_anim", cx + cw - closeW, footerY, closeW, btnH, closeText)) {
+    float closeW = g.TextWidth(FONT_MENU_SMALL, closeText) + 36 * s;
+    if (w::Button("close_anim", cx + cw - closeW, footerY, closeW, btnH, closeText, true, false, false, true)) {
         SetAnimMenuVisible(false);
     }
 
