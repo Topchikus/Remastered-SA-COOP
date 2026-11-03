@@ -614,6 +614,7 @@ bool SaveWorldSnapshot(std::vector<uint8_t>& out) {
 }
 
 void Init(void* hModule) {
+    SetProcessDPIAware();
     auto& cfg = Cfg();
     std::wstring coopDir = CoopDirFromModule(hModule);
     EnsureDirectory(coopDir);

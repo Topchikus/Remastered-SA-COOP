@@ -22,7 +22,7 @@ constexpr PlayerMask kAllPlayers = 0xFFFF;
 inline PlayerMask Bit(uint8_t id) { return id < kMaxPlayers ? (PlayerMask)(1u << id) : 0; }
 constexpr uint8_t kServerId = 255;
 constexpr size_t kMaxChatLen = 160;
-constexpr size_t kWorldChunk = 16 * 1024;
+constexpr size_t kWorldChunk = 4096;
 
 enum Channel : uint8_t {
     CH_RELIABLE = 0,  // ordered, reliable: events

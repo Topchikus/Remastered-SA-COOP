@@ -241,7 +241,7 @@ void Session::HandleService(uint8_t id, Reader& r) {
         }
         case S_WORLD_CHUNK: {
             uint32_t off = r.U32();
-            auto bytes = r.Bytes(kWorldChunk);
+            auto bytes = r.Bytes(64 * 1024);
             // off + size wraps in 32 bits: the bound is checked without the sum
             if (!r.Ok() || off > m_world.size() || bytes.size() > m_world.size() - off) break;
             memcpy(m_world.data() + off, bytes.data(), bytes.size());

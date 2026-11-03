@@ -49,7 +49,7 @@ bool g_prologue = false;            // host: a new game's prologue runs (it cann
 bool g_afterPrologue = false;       // host: and is over, no save of this game has gone out yet
 bool g_prologueWait = false;        // partner: the host plays a new game's prologue
 bool g_worldNone = false;           // partner: the server has no world for us yet (the host is still in the menu)
-uint64_t g_gameStartedAt = 0, g_snapshotTriedAt = 0;
+uint64_t g_gameStartedAt = 0, g_snapshotTriedAt = 0, g_worldWantedAt = 0;
 bool g_follower = false;            // partner: in a new game of its own next to the host, until its first save
 bool g_progressUpload = false;      // host: the next snapshot goes to the partners in the game as well
 std::vector<uint8_t> g_pendingWorld;  // partner: the host's world after its progress, loaded at a safe moment
@@ -711,7 +711,7 @@ void Update() {
                 Writer w(C_WORLD_FOLLOW);
                 net.Send(CH_BULK, w);
                 g_keepSent = true;
-            } else if (!g_keepSent && (core::IsOnMission() || game::FindPlayerPed(0)->InVehicle())) {
+            } else if (!g_keepSent && (core::IsOnMission() || game::FindPlayerPed(0)->InVehicle() || (g_worldWantedAt && NowMs() - g_worldWantedAt > 1500))) {
                 // no snapshot during a mission or in a vehicle: the stored world now, a fresh one once possible
                 Writer w(C_WORLD_KEEP);
                 net.Send(CH_BULK, w);
@@ -724,6 +724,7 @@ void Update() {
 void RequestFreshWorld() {
     g_worldUploadPending = true;
     g_keepSent = false;  // a new request gets its own answer
+    g_worldWantedAt = NowMs();
 }
 
 // The server keeps us waiting for the host's game (it gives no stored world while the host is in the menu): no time

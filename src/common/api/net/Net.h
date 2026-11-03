@@ -21,7 +21,7 @@ constexpr enet_uint32 kMtu = 1200;
 // ended 10-14 s later (issues #14, #50): there ENet's smallest datagrams and a narrow window (the server keeps at most
 // 8 KB unacknowledged towards such a peer: ENet derives its window from the bandwidth the peer announces).
 constexpr enet_uint32 kRelayMtu = 576;
-constexpr enet_uint32 kRelayBandwidth = 128 * 1024;  // bytes/s
+constexpr enet_uint32 kRelayBandwidth = 1024 * 1024;  // bytes/s (1 MB/s)
 
 // Packet flags for a channel: reliable channels get ENET_PACKET_FLAG_RELIABLE.
 uint32_t FlagsForChannel(uint8_t channel);

@@ -50,11 +50,9 @@ constexpr int kLodListRoom = (0x2000 - 24) / 8;
 // The far plane at most this. The depth buffer's step grows with the square of the distance (24 bits from a near plane
 // of 0.3 m: some 0.2 m at 1 km, nearly a metre at 2 km), and far off the road over the ground, a wall's paint over the
 // wall and an LOD over its building shimmered as the camera moved: the game's own fog hides that from 1-1.5 km on.
-constexpr float kMaxFarClip = 3000.0f;  // 0.4.0: farther (was 2400); the fog thickens over the last part
-// The models' detail range at most this (the menu's slider ends at 1.8): beyond, the streamer cannot keep the HD models
-// in, they swap with their LODs back and forth, and the two overlap while they cross-fade (their textures shimmer).
-// 0.5.2: 2.0 (0.4.0's 2.2 kept the streamer swapping models with their LODs over the city at a view of 2 and more)
-constexpr float kMaxLodScale = 2.0f;
+constexpr float kMaxFarClip = 2400.0f;  // 2400 avoids 24-bit z-buffer fighting
+// The models' detail range at most this (1.6 avoids dropping entities from render list)
+constexpr float kMaxLodScale = 1.6f;
 
 // The stretch moves in steps of a tenth and seldom. 0.4.0's went down a little whenever the lists were 72% full and up
 // a little whenever they were under 60%, every frame: at a view of 2 and more over the city the lists stood about
@@ -220,6 +218,9 @@ public:
         if (args.size() > 1) {
             float l = (float)std::atof(args[1].c_str());
             if (l >= 0.5f && l <= 3.0f) cfg.lodDistance = l;
+        } else {
+            if (v <= 1.0f) cfg.lodDistance = v;
+            else cfg.lodDistance = std::clamp(1.0f + (v - 1.0f) * 0.25f, 1.0f, 1.4f);
         }
         Ini ini;
         ini.Load(cfg.iniPath);

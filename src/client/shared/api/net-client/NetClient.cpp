@@ -197,7 +197,7 @@ void NetClient::ThreadMain(std::string host, uint16_t port) {
         return;
     }
     // a lossy line (2-6 %) dropped the connection now and then: 15 s before a silent peer counts as gone, 20 s at most
-    enet_peer_timeout(peer, 0, 15000, 20000);
+    enet_peer_timeout(peer, 0, 30000, 45000);
     LOGI("Подключение к %s:%u...", host.c_str(), port);
 
     std::vector<Packet> outLocal;
@@ -226,7 +226,7 @@ void NetClient::ThreadMain(std::string host, uint16_t port) {
             peer = enet_host_connect(client, &relay, proto::CH_COUNT, 0);
             relayAt = 0;
             if (!peer) break;
-            enet_peer_timeout(peer, 0, 15000, 20000);
+            enet_peer_timeout(peer, 0, 30000, 45000);
         }
 
         ENetEvent ev;

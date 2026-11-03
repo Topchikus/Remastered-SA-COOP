@@ -79,7 +79,18 @@ using RsEventFn = int(__cdecl*)(int, void*);
 RsEventFn g_origIdleEvent = nullptr;
 int __cdecl HookIdleEvent(int event, void* param) {
     auto* dev = (IDirect3DDevice9*)game::D3DDevice();
-    if (dev && dev->TestCooperativeLevel() == D3DERR_DEVICELOST) param = nullptr;
+    if (dev) {
+        HRESULT hr = dev->TestCooperativeLevel();
+        if (hr == D3DERR_DEVICELOST) {
+            Sleep(20);
+            return 0;
+        }
+    }
+    HWND hwnd = (HWND)game::GameWindow();
+    if (hwnd && IsIconic(hwnd) && !Cfg().windowed) {
+        Sleep(20);
+        return 0;
+    }
     return g_origIdleEvent(event, param);
 }
 
@@ -363,8 +374,10 @@ void InstallGrabScreenFix() {
 
 void InstallWindowedMode() {
     auto& cfg = Cfg();
-    g_winW = cfg.width > 0 ? cfg.width : 1280;
-    g_winH = cfg.height > 0 ? cfg.height : 720;
+    int screenW = GetSystemMetrics(SM_CXSCREEN);
+    int screenH = GetSystemMetrics(SM_CYSCREEN);
+    g_winW = cfg.width > 0 ? cfg.width : (cfg.borderless ? screenW : (screenW > 1280 ? 1280 : screenW));
+    g_winH = cfg.height > 0 ? cfg.height : (cfg.borderless ? screenH : (screenH > 720 ? 720 : screenH));
     FitToWorkArea(g_winW, g_winH);
     HMODULE d3d9 = GetModuleHandleW(L"d3d9.dll");
     if (!d3d9) d3d9 = LoadLibraryW(L"d3d9.dll");

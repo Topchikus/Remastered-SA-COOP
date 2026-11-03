@@ -87,8 +87,8 @@ void Server::Run() {
             cmds.swap(m_cmdQueue);
         }
         for (auto& c : cmds) HandleCommand(nullptr, c);
-        if (m_worldWantedTime && NowMs() - m_worldWantedTime > 10000) {
-            LOGW("Хост не прислал свежий мир за 10 с. Отправляю сохранённый");
+        if (m_worldWantedTime && NowMs() - m_worldWantedTime > 3000) {
+            LOGW("Хост не прислал свежий мир за 3 с. Отправляю сохранённый");
             FlushWorldRequests(false);
         }
         if (NowMs() - m_lastPings > 2000) {
@@ -458,7 +458,7 @@ void Server::HandleWorldBegin(Player& p, Reader& r) {
 
 void Server::HandleWorldChunk(Player& p, Reader& r) {
     uint32_t off = r.U32();
-    auto bytes = r.Bytes(kWorldChunk);
+    auto bytes = r.Bytes(64 * 1024);
     // off + size wraps in 32 bits: the bound is checked without the sum
     if (!r.Ok() || p.upload.empty() || off > p.upload.size() || bytes.size() > p.upload.size() - off) return;
     memcpy(p.upload.data() + off, bytes.data(), bytes.size());
