@@ -161,6 +161,13 @@ void __fastcall HookCheckForStationRetune(void* radio, void* edx) {
     g_origRetune(radio, edx);
 }
 
+// Cut out radio commercials/adverts: when selecting an advert, select a music track instead!
+using SelectAdvertFn = int(__cdecl*)(int);
+SelectAdvertFn g_origSelectAdvert = nullptr;
+int __cdecl HookSelectAdvert(int station) {
+    return game::Call<0x4E9570, int>(station);
+}
+
 // ---------------------------------------------------------------- video mode / windowed / intro
 struct RwVideoMode {
     int width, height, depth, flags, refRate, format;
@@ -858,6 +865,9 @@ void Apply() {
     mem::RedirectCallFn(0x576C55, &HookMenuStopRadio, &g_origMenuStopRadio);  // CMenuManager::CheckForMenuClosing
     mem::RedirectCallFn(0x5737A5, &HookMenuStopRadio, &g_origMenuStopRadio);  // CMenuManager::SwitchToNewScreen
     mem::RedirectCallFn(0x4EB9F4, &HookCheckForStationRetune, &g_origRetune);   // CAERadioTrackManager::Service
+    // Cut out radio commercials/adverts: route track type 0 (advert) to type 1 (music track)
+    mem::Put<uint32_t>(0x4EA918, 0x004EA8AD);
+    mem::HookFn(0x4E94C0, &HookSelectAdvert, &g_origSelectAdvert, "CAERadioTrackManager::SelectAdvert");
     mem::HookFn(0x746190, &HookSelectDevice, &g_origSelectDevice, "psSelectDevice");
     mem::HookFn(0x710310, &HookStencilForObject, &g_origStencilForObject, "CStencilShadows::RenderForObject");
     mem::HookFn(0x431F80, &HookCreateCarForScript, &g_origCreateCarForScript, "CCarCtrl::CreateCarForScript");

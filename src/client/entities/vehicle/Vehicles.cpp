@@ -281,6 +281,24 @@ void Vehicles::ApplyLook(NetVehicle& nv) {
     v->DoorLock() = nv.look.lock == 2 && !nv.script ? 1 : nv.look.lock;
 }
 
+static void ApplyRadioStation(uint8_t station) {
+    uint8_t curStation = Ref<uint8_t>(0x8CB6F8 + 0xE9);
+    if (curStation == station) return;
+
+    if (station == 0 || station >= 13) {
+        // Radio OFF: StopRadio(nullptr, 0) safely stops the current station
+        CallMethod<0x4E9820>((void*)0x8CB6F8, (void*)nullptr, (char)0);
+        Ref<int8_t>(0x8CB6F8 + 0xE9) = 13;
+        Ref<int32_t>(0x8CB6F8 + 0x74) = 13;
+    } else {
+        // Retune radio safely via script retune ID and StartRadio(station, bass=0.0f, arg=0, unused=0)
+        Ref<int32_t>(0x8CB6F8 + 0x7C) = (int32_t)station;  // m_nScriptRetuneStationID
+        Ref<uint8_t>(0x8CB6F8 + 0x01) = 1;                  // m_bDisplayNewStationName
+        Ref<uint8_t>(0x8CB6F8 + 0x06) = 1;                  // m_bRetuneStartedThisFrame
+        CallMethod<0x4EB3C0>((void*)0x8CB6F8, (int)station, 0.0f, 0, (char)0);
+    }
+}
+
 void Vehicles::HandleRadio(uint8_t from, Reader& r) {
     uint16_t id = r.U16();
     uint8_t station = r.U8();
@@ -291,13 +309,7 @@ void Vehicles::HandleRadio(uint8_t from, Reader& r) {
     CPlayerPed* me = FindPlayerPed(0);
     if (me && me->InVehicle() && me->Vehicle() == nv->veh && nv->veh->Driver() != me) {
         LOGI("Vehicle %04X: passenger synced radio to station %d", id, (int)station);
-        if (station == 0 || station > 12) {
-            CallMethod<0x4EB460>((void*)0x8CB6F8, (void*)nullptr, false);  // StopRadio
-            Ref<uint8_t>(0x8CB6F8) = station;
-        } else {
-            CallMethod<0x4E9820>((void*)0x8CB6F8, station, station);  // RetuneRadio (HUD name)
-            CallMethod<0x4EB3C0>((void*)0x8CB6F8, station, (uint8_t)0, (int32_t)0, (uint8_t)0);  // StartRadio (audio stream)
-        }
+        ApplyRadioStation(station);
     }
 }
 
@@ -850,9 +862,8 @@ void Vehicles::ApplyMirror(NetVehicle& nv, float dt) {
     bool isPassenger = me && me->InVehicle() && me->Vehicle() == v && v->Driver() != me;
     if (isPassenger) {
         err.z = std::clamp(err.z, -0.2f, 0.2f);
-        if (nv.radioStation != 0 && Ref<uint8_t>(0x8CB6F8) != nv.radioStation) {
-            CallMethod<0x4E9820>((void*)0x8CB6F8, nv.radioStation, nv.radioStation);
-            CallMethod<0x4EB3C0>((void*)0x8CB6F8, nv.radioStation, (uint8_t)0, (int32_t)0, (uint8_t)0);
+        if (nv.radioStation != 0 && Ref<uint8_t>(0x8CB6F8 + 0xE9) != nv.radioStation) {
+            ApplyRadioStation(nv.radioStation);
         }
     }
     float dist = err.Length();
@@ -1073,7 +1084,7 @@ void Vehicles::OnPostProcess() {
         }
         // owned: the local driver's state goes in G_PLAYER_DRIVER (Players); here only unoccupied vehicles
         if (me && nv.veh->Driver() == me) {
-            uint8_t curRadio = Ref<uint8_t>(0x8CB6F8);
+            uint8_t curRadio = Ref<uint8_t>(0x8CB6F8 + 0xE9);
             if (curRadio != nv.lastSentRadio) {
                 nv.lastSentRadio = curRadio;
                 nv.radioStation = curRadio;
