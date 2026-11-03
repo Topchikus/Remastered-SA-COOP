@@ -54,6 +54,7 @@ private:
     bool m_fromGame = false;          // the cursor below is ours (CursorFromGameMouse)
     float m_gameX = 0, m_gameY = 0;  // in client pixels
     bool m_gameLmb = false;
+    bool m_skipFirstFeed = false;
     InputState m_state;
 };
 
